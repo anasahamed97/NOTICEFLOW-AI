@@ -79,7 +79,8 @@ NoticeFlow AI is designed with a premium, human-crafted productivity SaaS aesthe
 - **AI Processing**: Google Gemini API (`gemini-2.5-flash`, `gemini-2.0-flash`, `gemini-1.5-flash`)
 - **PDF Engine**: PDF.js (`pdfjs-dist`)
 - **Calendar Standard**: RFC 5545 iCalendar (`.ics`)
-- **Storage**: Browser `localStorage`
+- **Storage**: Dual-layer (Supabase PostgreSQL cloud sync + browser `localStorage` offline cache)
+- **Database Client**: `@supabase/supabase-js`
 - **Deployment**: Vercel Serverless Functions (`/api/extract`)
 
 ---

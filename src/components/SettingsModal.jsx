@@ -7,8 +7,12 @@ import {
   CheckCircle2,
   ExternalLink,
   Cpu,
-  X
+  X,
+  Database,
+  Check,
+  AlertCircle
 } from 'lucide-react'
+import { isSupabaseConfigured } from '../utils/supabaseClient'
 
 export default function SettingsModal({
   isOpen,
@@ -20,14 +24,49 @@ export default function SettingsModal({
   if (!isOpen) return null
 
   const [apiKeyInput, setApiKeyInput] = useState(settings.customApiKey || '')
+  const [supabaseUrlInput, setSupabaseUrlInput] = useState(settings.supabaseUrl || '')
+  const [supabaseKeyInput, setSupabaseKeyInput] = useState(settings.supabaseAnonKey || '')
   const [demoMode, setDemoMode] = useState(!!settings.demoMode)
   const [languagePref, setLanguagePref] = useState(settings.languagePreference || 'all')
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [testStatus, setTestStatus] = useState(null)
+
+  const isConfigured = !!(
+    (supabaseUrlInput && supabaseKeyInput && supabaseUrlInput.startsWith('http')) ||
+    isSupabaseConfigured()
+  )
+
+  const handleTestConnection = async () => {
+    setTestStatus('testing')
+    try {
+      const url = supabaseUrlInput.trim()
+      const key = supabaseKeyInput.trim()
+      if (!url || !key) {
+        setTestStatus('missing')
+        return
+      }
+      const res = await fetch(`${url}/rest/v1/`, {
+        headers: {
+          apikey: key,
+          Authorization: `Bearer ${key}`
+        }
+      })
+      if (res.ok || res.status === 200 || res.status === 404) {
+        setTestStatus('success')
+      } else {
+        setTestStatus('failed')
+      }
+    } catch (e) {
+      setTestStatus('failed')
+    }
+  }
 
   const handleSave = () => {
     onSaveSettings({
       ...settings,
       customApiKey: apiKeyInput.trim(),
+      supabaseUrl: supabaseUrlInput.trim(),
+      supabaseAnonKey: supabaseKeyInput.trim(),
       demoMode,
       languagePreference: languagePref
     })
@@ -49,7 +88,7 @@ export default function SettingsModal({
             </div>
             <div>
               <h3 className="text-base font-bold text-[#263238] font-['Plus_Jakarta_Sans']">Application Settings</h3>
-              <p className="text-xs text-[#718096] font-['Inter']">NoticeFlow AI Configuration & API Access</p>
+              <p className="text-xs text-[#718096] font-['Inter']">Database, API Keys & Configuration</p>
             </div>
           </div>
 
@@ -59,6 +98,81 @@ export default function SettingsModal({
           >
             <X className="w-5 h-5" />
           </button>
+        </div>
+
+        {/* Supabase Database Section */}
+        <div className="space-y-3 rounded-xl border border-[#E5E9E5] bg-[#F7F7F2] p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Database className="w-4 h-4 text-[#267F73]" />
+              <span className="text-xs font-bold text-[#263238] font-['Plus_Jakarta_Sans']">
+                Supabase (PostgreSQL Database)
+              </span>
+            </div>
+            <span
+              className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
+                isConfigured
+                  ? 'bg-[#DDEAE4] text-[#1E6B61] border border-[#b8d3c7]'
+                  : 'bg-[#FEF7E9] text-[#B57F24] border border-[#F8E3B6]'
+              }`}
+            >
+              {isConfigured ? 'Connected' : 'Offline / LocalStorage Mode'}
+            </span>
+          </div>
+
+          <p className="text-[11px] text-[#718096] leading-relaxed font-['Inter']">
+            Connect your Supabase project for persistent cloud storage. NoticeFlow AI automatically falls back to localStorage if offline.
+          </p>
+
+          <div className="space-y-2 text-xs">
+            <div>
+              <label className="text-[10px] font-semibold text-[#718096]">SUPABASE PROJECT URL</label>
+              <input
+                type="text"
+                value={supabaseUrlInput}
+                onChange={(e) => setSupabaseUrlInput(e.target.value)}
+                placeholder="https://xyzproject.supabase.co"
+                className="w-full mt-0.5 px-3 py-1.5 rounded-lg bg-white border border-[#E5E9E5] text-xs text-[#263238] font-mono focus:border-[#267F73] focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="text-[10px] font-semibold text-[#718096]">SUPABASE ANON KEY</label>
+              <input
+                type="password"
+                value={supabaseKeyInput}
+                onChange={(e) => setSupabaseKeyInput(e.target.value)}
+                placeholder="eyJhbGciOiJIUzI1NiIsInR5c..."
+                className="w-full mt-0.5 px-3 py-1.5 rounded-lg bg-white border border-[#E5E9E5] text-xs text-[#263238] font-mono focus:border-[#267F73] focus:outline-none"
+              />
+            </div>
+
+            <div className="flex items-center justify-between pt-1">
+              <button
+                type="button"
+                onClick={handleTestConnection}
+                className="px-2.5 py-1 text-[11px] font-semibold text-[#267F73] bg-[#DDEAE4] hover:bg-[#b8d3c7] rounded-md transition-colors"
+              >
+                {testStatus === 'testing' ? 'Testing...' : 'Test Connection'}
+              </button>
+
+              {testStatus === 'success' && (
+                <span className="text-[11px] text-[#38866B] flex items-center gap-1 font-medium">
+                  <Check className="w-3.5 h-3.5" /> Supabase Endpoint Reachable
+                </span>
+              )}
+              {testStatus === 'failed' && (
+                <span className="text-[11px] text-[#D66C65] flex items-center gap-1 font-medium">
+                  <AlertCircle className="w-3.5 h-3.5" /> Connection Failed
+                </span>
+              )}
+              {testStatus === 'missing' && (
+                <span className="text-[11px] text-[#D9A441] font-medium">
+                  Please enter URL and Anon Key
+                </span>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Gemini API Key Section */}

@@ -20,8 +20,14 @@ import {
   getStoredActivities,
   logActivity,
   INITIAL_NOTICES,
-  INITIAL_EVENTS
+  INITIAL_EVENTS,
+  syncFromSupabase,
+  syncNoticeToSupabase,
+  syncEventsToSupabase,
+  deleteNoticeFromSupabase,
+  deleteEventFromSupabase
 } from './utils/storage'
+import { isSupabaseConfigured } from './utils/supabaseClient'
 import { getDeadlineBadge } from './utils/dateUtils'
 
 export default function App() {
@@ -51,6 +57,19 @@ export default function App() {
   useEffect(() => {
     saveStoredSettings(settings)
   }, [settings])
+
+  // Sync from Supabase on mount if configured
+  useEffect(() => {
+    if (isSupabaseConfigured()) {
+      syncFromSupabase().then((res) => {
+        if (res && res.success) {
+          setNotices(getStoredNotices())
+          setEvents(getStoredEvents())
+          setActivities(getStoredActivities())
+        }
+      })
+    }
+  }, [])
 
   // Count urgent deadlines
   const urgentCount = events.filter((e) => {
@@ -106,6 +125,10 @@ export default function App() {
     )
     setActivities(updatedActs)
 
+    // Sync to Supabase cloud in background
+    syncNoticeToSupabase(newNotice).catch(() => {})
+    syncEventsToSupabase(stampedEvents).catch(() => {})
+
     setCurrentExtraction(null)
     setActiveTab('calendar')
   }
@@ -115,6 +138,7 @@ export default function App() {
     setEvents((prev) => prev.filter((e) => e.id !== eventId))
     const updatedActs = logActivity('event_deleted', 'Removed calendar event')
     setActivities(updatedActs)
+    deleteEventFromSupabase(eventId).catch(() => {})
   }
 
   // Delete notice and associated events
@@ -123,15 +147,18 @@ export default function App() {
     setEvents((prev) => prev.filter((e) => e.noticeId !== noticeId))
     const updatedActs = logActivity('notice_deleted', 'Deleted notice and linked calendar events')
     setActivities(updatedActs)
+    deleteNoticeFromSupabase(noticeId).catch(() => {})
   }
 
-  // Reset to initial demo data
+  // Reset to clean empty state
   const handleResetData = () => {
-    setNotices(INITIAL_NOTICES)
-    setEvents(INITIAL_EVENTS)
+    setNotices([])
+    setEvents([])
+    setActivities([])
+    localStorage.removeItem('noticeflow_notices_v1')
+    localStorage.removeItem('noticeflow_events_v1')
+    localStorage.removeItem('noticeflow_activity_v1')
     localStorage.removeItem('noticeflow_completed_tasks_v1')
-    const resetActs = logActivity('system_reset', 'Reset all records to initial sample data')
-    setActivities(resetActs)
   }
 
   // Sample Notice selected from modal or dashboard
